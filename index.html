@@ -1,1 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Resolución de Inecuaciones</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f0f4f8;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px;
+      width: 100%;
+    }
+    #resultado {
+      background-color: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Resolución de Desigualdades Lineales y Cuadráticas</h1>
+
+<label for="inecuacion">Ingresa una inecuación (ej. 2x+3&gt;5 o x^2-4x+3&lt;0):</label>
+<input type="text" id="inecuacion" placeholder="Ej: x^2 - 4x + 3 < 0">
+
+<button onclick="resolverInecuacion()">Resolver</button>
+
+<div id="resultado"></div>
+
+<script>
+  function resolverInecuacion() {
+    const input = document.getElementById("inecuacion").value.replace(/\s+/g, '');
+    const resultado = document.getElementById("resultado");
+
+    try {
+      if (input.includes('x^2')) {
+        resolverCuadratica(input);
+      } else {
+        resolverLineal(input);
+      }
+    } catch (e) {
+      resultado.innerText = "Error en la inecuación. Asegúrate de usar formato correcto.";
+    }
+  }
+
+  function resolverLineal(expr) {
+    const match = expr.match(/([-+]?[0-9]*x)([-+][0-9]+)?([<>]=?|=)(-?[0-9]+)/);
+    const resultado = document.getElementById("resultado");
+
+    if (!match) {
+      resultado.innerText = "Formato no válido para inecuación lineal.";
+      return;
+    }
+
+    let coef = parseFloat(match[1].replace('x', '') || 1);
+    let constante = parseFloat(match[2] || 0);
+    let operador = match[3];
+    let derecha = parseFloat(match[4]);
+
+    // Resolver: ax + b < c => x < (c - b)/a
+    const paso1 = `${coef}x ${constante >= 0 ? '+' : '-'} ${Math.abs(constante)} ${operador} ${derecha}`;
+    const paso2 = `=> ${coef}x ${operador} ${derecha - constante}`;
+    const paso3 = `=> x ${operador} ${(derecha - constante) / coef}`;
+
+    resultado.innerText = `Resolviendo:\n${paso1}\n${paso2}\n${paso3}`;
+  }
+
+  function resolverCuadratica(expr) {
+    const resultado = document.getElementById("resultado");
+
+    const match = expr.match(/([+-]?\d*)x\^2([+-]\d*)x([+-]\d+)([<>]=?)/);
+    if (!match) {
+      resultado.innerText = "Formato no válido para inecuación cuadrática. Usa formato ax^2+bx+c<0";
+      return;
+    }
+
+    const a = parseFloat(match[1] || 1);
+    const b = parseFloat(match[2]);
+    const c = parseFloat(match[3]);
+    const operador = match[4];
+
+    const discriminante = b * b - 4 * a * c;
+
+    let texto = `Resolviendo: ${a}x² ${b >= 0 ? '+' : '-'} ${Math.abs(b)}x ${c >= 0 ? '+' : '-'} ${Math.abs(c)} ${operador} 0\n`;
+    texto += `Discriminante = ${b}² - 4*${a}*${c} = ${discriminante}\n`;
+
+    if (discriminante < 0) {
+      texto += "No hay raíces reales. La parábola no corta al eje X.\n";
+      texto += (a > 0)
+        ? operador.includes('<') ? "Solución: ∅ (nunca se cumple)\n" : "Solución: ℝ (siempre se cumple)\n"
+        : operador.includes('<') ? "Solución: ℝ\n" : "Solución: ∅\n";
+    } else {
+      const x1 = (-b + Math.sqrt(discriminante)) / (2 * a);
+      const x2 = (-b - Math.sqrt(discriminante)) / (2 * a);
+      const [r1, r2] = [Math.min(x1, x2), Math.max(x1, x2)];
+
+      texto += `Raíces: x₁ = ${r1.toFixed(2)}, x₂ = ${r2.toFixed(2)}\n`;
+
+      if (a > 0) {
+        if (operador.includes('<')) {
+          texto += `Solución: (${r1.toFixed(2)}, ${r2.toFixed(2)})`;
+        } else {
+          texto += `Solución: (-∞, ${r1.toFixed(2)}] ∪ [${r2.toFixed(2)}, ∞)`;
+        }
+      } else {
+        if (operador.includes('<')) {
+          texto += `Solución: (-∞, ${r1.toFixed(2)}] ∪ [${r2.toFixed(2)}, ∞)`;
+        } else {
+          texto += `Solución: (${r1.toFixed(2)}, ${r2.toFixed(2)})`;
+        }
+      }
+    }
+
+    resultado.innerText = texto;
+  }
+</script>
+
+</body>
+</html>
 
