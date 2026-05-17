@@ -1,131 +1,758 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Resolución de Inecuaciones</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f0f4f8;
-    }
-    h1 {
-      color: #2c3e50;
-    }
-    input, button {
-      padding: 10px;
-      font-size: 16px;
-      margin: 5px;
-      width: 100%;
-    }
-    #resultado {
-      background-color: white;
-      border: 1px solid #ccc;
-      padding: 15px;
-      margin-top: 20px;
-      white-space: pre-wrap;
-    }
-  </style>
-</head>
-<body>
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                 Table, TableStyle, HRFlowable, PageBreak)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER, TA_LEFT, TA_RIGHT
 
-<h1>Resolución de Desigualdades Lineales y Cuadráticas</h1>
+OUTPUT = "/mnt/user-data/outputs/Diversidad_Cultural_Sierra_Amazonia_Ecuador.pdf"
 
-<label for="inecuacion">Ingresa una inecuación (ej. 2x+3&gt;5 o x^2-4x+3&lt;0):</label>
-<input type="text" id="inecuacion" placeholder="Ej: x^2 - 4x + 3 < 0">
+# ── PALETA DE COLORES ────────────────────────────────────────────
+IMB_BLUE   = colors.HexColor("#1A3A6B")
+IMB_LIGHT  = colors.HexColor("#D6E4F0")
+IMB_GOLD   = colors.HexColor("#B7791F")
 
-<button onclick="resolverInecuacion()">Resolver</button>
+CHI_RED    = colors.HexColor("#7B1D1D")
+CHI_LIGHT  = colors.HexColor("#FEE2E2")
+CHI_BROWN  = colors.HexColor("#92400E")
 
-<div id="resultado"></div>
+AZU_TEAL   = colors.HexColor("#134E4A")
+AZU_LIGHT  = colors.HexColor("#CCFBF1")
+AZU_AMBER  = colors.HexColor("#78350F")
 
-<script>
-  function resolverInecuacion() {
-    const input = document.getElementById("inecuacion").value.replace(/\s+/g, '');
-    const resultado = document.getElementById("resultado");
+MOR_GREEN  = colors.HexColor("#14532D")
+MOR_LIGHT  = colors.HexColor("#DCFCE7")
+MOR_BROWN  = colors.HexColor("#713F12")
 
-    try {
-      if (input.includes('x^2')) {
-        resolverCuadratica(input);
-      } else {
-        resolverLineal(input);
-      }
-    } catch (e) {
-      resultado.innerText = "Error en la inecuación. Asegúrate de usar formato correcto.";
-    }
-  }
+NAP_ORANGE = colors.HexColor("#7C2D12")
+NAP_LIGHT  = colors.HexColor("#FED7AA")
+NAP_GREEN  = colors.HexColor("#14532D")
 
-  function resolverLineal(expr) {
-    const match = expr.match(/([-+]?[0-9]*x)([-+][0-9]+)?([<>]=?|=)(-?[0-9]+)/);
-    const resultado = document.getElementById("resultado");
+PAS_PURPLE = colors.HexColor("#581C87")
+PAS_LIGHT  = colors.HexColor("#F3E8FF")
+PAS_GOLD   = colors.HexColor("#92400E")
 
-    if (!match) {
-      resultado.innerText = "Formato no válido para inecuación lineal.";
-      return;
-    }
+COVER_DARK = colors.HexColor("#0A1628")
+LIGHT_BG   = colors.HexColor("#F8F8F4")
+DARK_TXT   = colors.HexColor("#1A1A1A")
+MID_GRAY   = colors.HexColor("#666666")
+LINE_GRAY  = colors.HexColor("#CCCCCC")
+WHITE      = colors.white
 
-    let coef = parseFloat(match[1].replace('x', '') || 1);
-    let constante = parseFloat(match[2] || 0);
-    let operador = match[3];
-    let derecha = parseFloat(match[4]);
+W = 6.5 * inch
 
-    // Resolver: ax + b < c => x < (c - b)/a
-    const paso1 = `${coef}x ${constante >= 0 ? '+' : '-'} ${Math.abs(constante)} ${operador} ${derecha}`;
-    const paso2 = `=> ${coef}x ${operador} ${derecha - constante}`;
-    const paso3 = `=> x ${operador} ${(derecha - constante) / coef}`;
+# ── ESTILOS ──────────────────────────────────────────────────────
+styles = getSampleStyleSheet()
 
-    resultado.innerText = `Resolviendo:\n${paso1}\n${paso2}\n${paso3}`;
-  }
+def PS(name, **kw):
+    parent = kw.pop("parent", styles["Normal"])
+    return ParagraphStyle(name, parent=parent, **kw)
 
-  function resolverCuadratica(expr) {
-    const resultado = document.getElementById("resultado");
+cover_title = PS("ct",  fontSize=26, fontName="Helvetica-Bold", textColor=WHITE,      alignment=TA_CENTER, leading=32)
+cover_sub   = PS("cs",  fontSize=12, fontName="Helvetica",      textColor=colors.HexColor("#A7F3D0"), alignment=TA_CENTER, leading=16)
+cover_note  = PS("cn",  fontSize=10, fontName="Helvetica-Oblique", textColor=colors.HexColor("#FDE68A"), alignment=TA_CENTER)
+body        = PS("bd",  fontSize=10, fontName="Helvetica",      alignment=TA_JUSTIFY, leading=15, spaceAfter=5, firstLineIndent=14)
+body_nb     = PS("bdn", fontSize=10, fontName="Helvetica",      alignment=TA_JUSTIFY, leading=15, spaceAfter=4)
+bullet_p    = PS("bl",  fontSize=10, fontName="Helvetica",      alignment=TA_JUSTIFY, leading=14, spaceAfter=3, leftIndent=14, firstLineIndent=-10)
+src_s       = PS("src", fontSize=8,  fontName="Helvetica",      textColor=MID_GRAY,   alignment=TA_LEFT, leading=12)
+label_s     = PS("lb",  fontSize=9,  fontName="Helvetica-Bold", textColor=WHITE,      leading=12)
+val_s       = PS("vl",  fontSize=9,  fontName="Helvetica",      textColor=DARK_TXT,   alignment=TA_JUSTIFY, leading=12)
+date_s      = PS("ds",  fontSize=9,  fontName="Helvetica-Bold", textColor=DARK_TXT,   alignment=TA_CENTER, leading=12)
+canton_s    = PS("cans",fontSize=8,  fontName="Helvetica-Oblique", textColor=IMB_BLUE,alignment=TA_CENTER, leading=11)
+evt_s       = PS("evts",fontSize=9,  fontName="Helvetica",      textColor=DARK_TXT,   alignment=TA_JUSTIFY, leading=12)
+intro_s     = PS("intro",fontSize=11,fontName="Helvetica",      alignment=TA_JUSTIFY, leading=16, spaceAfter=8)
 
-    const match = expr.match(/([+-]?\d*)x\^2([+-]\d*)x([+-]\d+)([<>]=?)/);
-    if (!match) {
-      resultado.innerText = "Formato no válido para inecuación cuadrática. Usa formato ax^2+bx+c<0";
-      return;
-    }
+# ── HELPERS ──────────────────────────────────────────────────────
+def banner(text, bg, fs=11, pad_v=8):
+    st = PS(f"bn{id(text)}", fontSize=fs, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER, leading=fs+4)
+    t = Table([[Paragraph(text, st)]], colWidths=[W])
+    t.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), bg),
+        ("TOPPADDING",    (0,0), (-1,-1), pad_v),
+        ("BOTTOMPADDING", (0,0), (-1,-1), pad_v),
+        ("LEFTPADDING",   (0,0), (-1,-1), 10),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
+    ]))
+    return t
 
-    const a = parseFloat(match[1] || 1);
-    const b = parseFloat(match[2]);
-    const c = parseFloat(match[3]);
-    const operador = match[4];
+def big_banner(text, bg, emoji=""):
+    content = f"{emoji}  {text}" if emoji else text
+    st = PS(f"bb{id(text)}", fontSize=15, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER, leading=20)
+    t = Table([[Paragraph(content, st)]], colWidths=[W])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), bg),
+        ("TOPPADDING", (0,0), (-1,-1), 12),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 12),
+    ]))
+    return t
 
-    const discriminante = b * b - 4 * a * c;
+def region_banner(text, bg, emoji=""):
+    content = f"{emoji}  {text}" if emoji else text
+    st = PS(f"rb{id(text)}", fontSize=18, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER, leading=24)
+    t = Table([[Paragraph(content, st)]], colWidths=[W])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), bg),
+        ("TOPPADDING", (0,0), (-1,-1), 14),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 14),
+    ]))
+    return t
 
-    let texto = `Resolviendo: ${a}x² ${b >= 0 ? '+' : '-'} ${Math.abs(b)}x ${c >= 0 ? '+' : '-'} ${Math.abs(c)} ${operador} 0\n`;
-    texto += `Discriminante = ${b}² - 4*${a}*${c} = ${discriminante}\n`;
+def info_table(rows, lbg, lw=1.55*inch, vw=4.95*inch):
+    data = [[Paragraph(f"<b>{l}</b>", label_s), Paragraph(v, val_s)] for l,v in rows]
+    t = Table(data, colWidths=[lw, vw])
+    t.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (0,-1), lbg),
+        ("BACKGROUND",    (1,0), (1,-1), LIGHT_BG),
+        ("GRID",          (0,0), (-1,-1), 0.3, WHITE),
+        ("TOPPADDING",    (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("VALIGN",        (0,0), (-1,-1), "TOP"),
+    ]))
+    return t
 
-    if (discriminante < 0) {
-      texto += "No hay raíces reales. La parábola no corta al eje X.\n";
-      texto += (a > 0)
-        ? operador.includes('<') ? "Solución: ∅ (nunca se cumple)\n" : "Solución: ℝ (siempre se cumple)\n"
-        : operador.includes('<') ? "Solución: ℝ\n" : "Solución: ∅\n";
-    } else {
-      const x1 = (-b + Math.sqrt(discriminante)) / (2 * a);
-      const x2 = (-b - Math.sqrt(discriminante)) / (2 * a);
-      const [r1, r2] = [Math.min(x1, x2), Math.max(x1, x2)];
+def platos_table(rows, hbg):
+    hdr = [
+        Paragraph("<b>PLATO</b>",        PS(f"ph1{id(rows)}", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)),
+        Paragraph("<b>CANTON(ES)</b>",   PS(f"ph2{id(rows)}", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)),
+        Paragraph("<b>DESCRIPCION</b>",  PS(f"ph3{id(rows)}", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)),
+    ]
+    data = [hdr]
+    for p, c, d, pc in rows:
+        data.append([
+            Paragraph(p, PS(f"p{id(p)}", fontSize=9, fontName="Helvetica-Bold", textColor=pc, leading=12)),
+            Paragraph(c, PS(f"c{id(c)}", fontSize=8, fontName="Helvetica-Oblique", textColor=MID_GRAY, leading=11, alignment=TA_CENTER)),
+            Paragraph(d, PS(f"d{id(d)}", fontSize=9, fontName="Helvetica", textColor=DARK_TXT, leading=12, alignment=TA_JUSTIFY)),
+        ])
+    t = Table(data, colWidths=[1.4*inch, 1.35*inch, 3.75*inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND",     (0,0), (-1,0), hbg),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [WHITE, LIGHT_BG]),
+        ("GRID",           (0,0), (-1,-1), 0.3, LINE_GRAY),
+        ("TOPPADDING",     (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING",  (0,0), (-1,-1), 4),
+        ("LEFTPADDING",    (0,0), (-1,-1), 4),
+        ("RIGHTPADDING",   (0,0), (-1,-1), 4),
+        ("VALIGN",         (0,0), (-1,-1), "TOP"),
+        ("ALIGN",          (0,0), (-1,0), "CENTER"),
+    ]))
+    return t
 
-      texto += `Raíces: x₁ = ${r1.toFixed(2)}, x₂ = ${r2.toFixed(2)}\n`;
+def fest_table(rows, hbg):
+    hdr = [
+        Paragraph("<b>FECHA</b>",      PS(f"fh1{id(rows)}", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)),
+        Paragraph("<b>CANTON</b>",     PS(f"fh2{id(rows)}", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)),
+        Paragraph("<b>FESTIVIDAD</b>", PS(f"fh3{id(rows)}", fontSize=8, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)),
+    ]
+    data = [hdr]
+    for d2, c, e in rows:
+        data.append([Paragraph(d2, date_s), Paragraph(c, canton_s), Paragraph(e, evt_s)])
+    t = Table(data, colWidths=[1.05*inch, 1.45*inch, 4.0*inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND",     (0,0), (-1,0), hbg),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [WHITE, LIGHT_BG]),
+        ("GRID",           (0,0), (-1,-1), 0.3, LINE_GRAY),
+        ("TOPPADDING",     (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING",  (0,0), (-1,-1), 4),
+        ("LEFTPADDING",    (0,0), (-1,-1), 4),
+        ("RIGHTPADDING",   (0,0), (-1,-1), 4),
+        ("VALIGN",         (0,0), (-1,-1), "TOP"),
+    ]))
+    return t
 
-      if (a > 0) {
-        if (operador.includes('<')) {
-          texto += `Solución: (${r1.toFixed(2)}, ${r2.toFixed(2)})`;
-        } else {
-          texto += `Solución: (-∞, ${r1.toFixed(2)}] ∪ [${r2.toFixed(2)}, ∞)`;
-        }
-      } else {
-        if (operador.includes('<')) {
-          texto += `Solución: (-∞, ${r1.toFixed(2)}] ∪ [${r2.toFixed(2)}, ∞)`;
-        } else {
-          texto += `Solución: (${r1.toFixed(2)}, ${r2.toFixed(2)})`;
-        }
-      }
-    }
+def lugar_card(nombre, canton, desc, accent, light):
+    t = Table([
+        [Paragraph(f"📍 {nombre}", PS(f"ln{id(nombre)}", fontSize=10, fontName="Helvetica-Bold", textColor=accent, leading=13)),
+         Paragraph(f"Canton: {canton}", PS(f"lc{id(canton)}", fontSize=8, fontName="Helvetica-Oblique", textColor=MID_GRAY, alignment=TA_RIGHT, leading=12))],
+        [Paragraph(desc, PS(f"ld{id(desc)}", fontSize=9, fontName="Helvetica", alignment=TA_JUSTIFY, leading=13, textColor=DARK_TXT)), ""],
+    ], colWidths=[4.0*inch, 2.5*inch])
+    t.setStyle(TableStyle([
+        ("SPAN",          (0,1), (1,1)),
+        ("BACKGROUND",    (0,0), (-1,0), light),
+        ("BACKGROUND",    (0,1), (-1,1), WHITE),
+        ("LINEABOVE",     (0,0), (-1,0), 1.5, accent),
+        ("TOPPADDING",    (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("GRID",          (0,0), (-1,-1), 0.2, LINE_GRAY),
+    ]))
+    return t
 
-    resultado.innerText = texto;
-  }
-</script>
+def sp(h=0.1): return Spacer(1, h*inch)
+def sep(): return HRFlowable(width="100%", thickness=0.5, color=LINE_GRAY, spaceAfter=6, spaceBefore=4)
 
-</body>
-</html>
+# ════════════════════════════════════════════════════════════════
+story = []
 
+# ── PORTADA ──────────────────────────────────────────────────────
+cover = Table([
+    [Paragraph("ECUADOR", PS("ec", fontSize=10, fontName="Helvetica", textColor=colors.HexColor("#6EE7B7"), alignment=TA_CENTER))],
+    [Paragraph("DIVERSIDAD CULTURAL", cover_title)],
+    [Paragraph("Region Sierra  ·  Region Amazonia", cover_sub)],
+    [sp(0.1)],
+    [Paragraph("Gastronomia · Vestimenta · Lugares Representativos · Tradiciones y Festividades", cover_note)],
+    [sp(0.15)],
+    [Table([[
+        Paragraph("🏔 Imbabura", PS("p1", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#93C5FD"), alignment=TA_CENTER)),
+        Paragraph("⛰ Chimborazo", PS("p2", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#FCA5A5"), alignment=TA_CENTER)),
+        Paragraph("🌄 Azuay", PS("p3", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#6EE7B7"), alignment=TA_CENTER)),
+    ]], colWidths=[W/3]*3, style=TableStyle([("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)]))],
+    [sp(0.08)],
+    [Table([[
+        Paragraph("🌿 Morona Santiago", PS("g1", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#86EFAC"), alignment=TA_CENTER)),
+        Paragraph("🦜 Napo", PS("g2", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#FED7AA"), alignment=TA_CENTER)),
+        Paragraph("🌺 Pastaza", PS("g3", fontSize=10, fontName="Helvetica-Bold", textColor=colors.HexColor("#E9D5FF"), alignment=TA_CENTER)),
+    ]], colWidths=[W/3]*3, style=TableStyle([("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)]))],
+    [sp(0.12)],
+    [Paragraph("Informacion verificada de fuentes oficiales del Estado Ecuatoriano, Ministerio de Turismo, Prefecturas y Municipios", cover_note)],
+], colWidths=[W])
+cover.setStyle(TableStyle([
+    ("BACKGROUND", (0,0), (-1,-1), COVER_DARK),
+    ("TOPPADDING", (0,0), (-1,-1), 12),
+    ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+    ("LEFTPADDING", (0,0), (-1,-1), 16),
+    ("RIGHTPADDING", (0,0), (-1,-1), 16),
+]))
+story.append(cover)
+story.append(sp(0.2))
+story.append(Paragraph(
+    "Ecuador es un Estado plurinacional e intercultural reconocido por su Constitucion. "
+    "Sus regiones Sierra y Amazonia concentran la mayor riqueza de pueblos y nacionalidades "
+    "indigenas del pais. Segun el INEC (Censo 2022), las provincias con mayor poblacion "
+    "indigena son <b>Chimborazo, Imbabura y Morona Santiago</b>, mientras que en la Amazonia "
+    "las provincias de <b>Napo y Morona Santiago</b> tienen entre el 58-65% de su poblacion "
+    "autoidentificada como indigena. Este documento presenta las 6 provincias con mayor "
+    "diversidad cultural de ambas regiones, con informacion verificada de fuentes oficiales.", intro_s))
+story.append(sep())
+
+# ════════════════════ REGION SIERRA ════════════════════
+story.append(region_banner("REGION SIERRA", colors.HexColor("#1A3A6B"), "🏔"))
+story.append(sp(0.12))
+story.append(Paragraph(
+    "La Sierra ecuatoriana alberga a los pueblos kichwa de la sierra, distribuidos en 16 grupos: "
+    "natabuela, otavalo, karanki, kayambi, kitu kara, panzaleo, chibuleo, salasaka, kisapincha, "
+    "tomabela, waranka, puruha, kanari, saraguro, paltas y kichwa de la sierra. Segun el CODENPE, "
+    "la Sierra concentra la mayor diversidad de pueblos indigenas del Ecuador continental.", body))
+story.append(sp(0.1))
+
+# ════════════════════ IMBABURA ════════════════════
+story.append(big_banner("PROVINCIA DE IMBABURA — Lago San Pablo", IMB_BLUE, "🏔"))
+story.append(sp(0.1))
+story.append(Paragraph(
+    "Imbabura, conocida como la <b>«Provincia de los Lagos»</b>, tiene <b>6 cantones</b>: "
+    "Ibarra, Otavalo, Cotacachi, Antonio Ante (Atuntaqui), Pimampiro y Urcuqui. "
+    "Segun el Censo INEC 2022, es la <b>3ra provincia con mayor poblacion indigena del pais "
+    "(131.586 personas)</b>. La UNESCO reconocio a Imbabura como <b>Geoparque Mundial</b> en 2019. "
+    "Sus pueblos originarios —Otavalo, Karanki, Natabuela y Cayambi— son reconocidos "
+    "internacionalmente por sus artesanias, musica y tejidos.", body))
+story.append(sp(0.08))
+
+story.append(banner("1. DIVERSIDAD CULTURAL", IMB_BLUE))
+story.append(sp(0.06))
+story.append(info_table([
+    ("Pueblo Otavalo / Kichwa", "El mas reconocido internacionalmente. Asentado en Otavalo, Cotacachi, Ibarra y Antonio Ante. Hablan kichwa. Son reconocidos artesanos, musicos (bomba, sanjuanito) y comerciantes. El Mercado de Otavalo es el mas grande de America Latina para artesanias indigenas."),
+    ("Pueblo Karanki", "Ubicado en Ibarra y Pimampiro. Relacionados con los caciques preincaicos de la zona norte. Conservan su idioma kichwa, fiestas del solsticio y vestimenta propia de bayeta y poncho."),
+    ("Pueblo Natabuela", "En Antonio Ante (Atuntaqui). Conocidos por sus bordados a mano de alta calidad en telas de la commune Zuleta. Sus artesanias son reconocidas a nivel nacional e internacional."),
+    ("Afrodescendientes del Valle del Chota", "Asentados en el valle del Chota e Ibarra (parroquias Ambuqui, Salinas, El Juncal). Conservan la musica de la Bomba del Chota, unica expresion musical afroecuatoriana de la Sierra."),
+    ("Mestizos", "Presente en todos los cantones. Fuertes en la industria textil de Atuntaqui (capitale textil del Ecuador) y en la gastronomia regional."),
+], IMB_BLUE))
+story.append(sp(0.1))
+
+story.append(banner("2. GASTRONOMIA", IMB_BLUE))
+story.append(sp(0.06))
+story.append(platos_table([
+    ("🍖 Cuy asado", "Otavalo / Cotacachi / Ibarra", "Plato ceremonial y festivo de la Sierra norte. Cuy entero asado a la parrilla con papas y salsa de mani. Plato ancestral kichwa que se sirve en fiestas y celebraciones.", IMB_BLUE),
+    ("🥩 Carne colorada", "Cotacachi / Ibarra", "Cerdo adobado con achiote que adquiere color rojizo. Ahumado lentamente. Se sirve con tortillas de papa, tostado y encurtidos. Especialidad de Cotacachi.", IMB_BLUE),
+    ("🌽 Yamor de Otavalo", "Otavalo", "Bebida ceremonial elaborada con 7 variedades de maiz. Origen preincaico. Solo se prepara en septiembre durante las fiestas del Yamor. Patrimonio Inmaterial.", IMB_BLUE),
+    ("🧆 Mote con chicharron", "Otavalo / Ibarra / Atuntaqui", "Maiz hominy cocinado con trozos de cerdo frito crujiente. Plato popular en mercados y fiestas.", IMB_BLUE),
+    ("🍦 Helados de paila", "Ibarra", "Helado artesanal batido a mano en paila de bronce sobre hielo. Tradicion ibarreña de mas de 200 anos. Sabores de mora, taxo y guanabana.", IMB_BLUE),
+    ("🥞 Llapingachos", "Toda la provincia", "Tortillas de papa rellenas de queso, doradas en paila. Con ahi de mani, chorizo y huevo.", IMB_BLUE),
+    ("🫖 Chicha de Yamor", "Otavalo", "Elaborada con 7 variedades de maiz: chulpi, canguil, jora, negro, blanco, amarillo y morocho. Solo disponible en la fiesta del Yamor (septiembre).", IMB_BLUE),
+], IMB_GOLD))
+story.append(sp(0.1))
+
+story.append(banner("3. VESTIMENTA", IMB_BLUE))
+story.append(sp(0.06))
+story.append(Paragraph("<b>Hombres Otavalo:</b> Pantalon blanco corto hasta la rodilla (calzon), camisa blanca, poncho azul marino o negro, sombrero de fieltro blanco de ala ancha y alpargatas. El cabello largo trenzado (shimba) es el rasgo identitario mas visible del hombre otavaleno.", bullet_p))
+story.append(Paragraph("<b>Mujeres Otavalo:</b> Blusa blanca bordada con flores de colores vivos en el cuello y mangas (huipil), anaco negro (falda) sujetado con faja roja y cinta de colores en la cintura (mama chumbi). Collares dorados de mullos (cuentas de vidrio), fachalina (chal) y alpargatas. Aretes de oro.", bullet_p))
+story.append(Paragraph("<b>Pueblo Karanki:</b> Poncho de lana rojo o azul con rayas. Mujeres con anaco azul o negro y blusa blanca bordada.", bullet_p))
+story.append(Paragraph("<b>Bordados de Zuleta (Ibarra):</b> Declarados Patrimonio Cultural. Blusas blancas con bordados policromos de flores, aves y animales. Las mujeres de la commune Zuleta los elaboran a mano desde hace siglos.", bullet_p))
+story.append(Paragraph("<b>Afrodescendientes del Chota:</b> Ropa ligera en colores vivos, faldas amplias para el baile de la Bomba. Las mujeres llevan el cabello adornado con peinados especiales en festividades.", bullet_p))
+story.append(sp(0.1))
+
+story.append(banner("4. LUGARES REPRESENTATIVOS", IMB_BLUE))
+story.append(sp(0.06))
+for lug, can, desc in [
+    ("Mercado Artesanal de Otavalo", "Otavalo", "El mercado indigena mas grande de America Latina (segun el Ministerio de Turismo). Sabado: feria de tejidos, artesanias, ropa y artesanias kichwa. 400 anos de historia comercial. Plaza de los Ponchos como epicentro."),
+    ("Laguna de Cuicocha", "Cotacachi", "Laguna de crater volcanico a 3.068 m.s.n.m. dentro del Parque Nacional Cotacachi-Cayapas. Llamada 'Laguna de los Dioses' por los kichwas. Paseos en bote y senderos. Declarada Geoparque Mundial UNESCO 2019."),
+    ("Cascada de Peguche", "Otavalo", "Cascada sagrada de 18 m para el pueblo Otavalo. Escenario ritual del Inti Raymi (junio). Comunidades tejedoras y musicos de flauta viven en sus alrededores."),
+    ("Valle del Chota — Musica de la Bomba", "Ibarra (Valle del Chota)", "Territorio afrodescendiente de la Sierra. Cuna de la Musica de la Bomba, Patrimonio Cultural Inmaterial del Ecuador. Comunidades de Ambuqui, Salinas y El Juncal."),
+    ("Commune Zuleta — Bordados", "Ibarra", "Commune conocida internacionalmente por sus bordados a mano. Hacienda Zuleta fue residencia del ex-presidente Galo Plaza. Feria gastronomica y turistica anual."),
+    ("Laguna de Yahuarcocha", "Ibarra", "Laguna a 2.190 m.s.n.m. a 3 km de Ibarra. Circuito Internacional de velocidad de 10 km. Gastronomia de tilapia frita, especialidad local."),
+]:
+    story.append(lugar_card(lug, can, desc, IMB_BLUE, IMB_LIGHT))
+    story.append(sp(0.03))
+story.append(sp(0.08))
+
+story.append(banner("5. TRADICIONES Y FESTIVIDADES", IMB_GOLD))
+story.append(sp(0.06))
+story.append(Paragraph(
+    "Los pueblos indigenas de Imbabura celebran los <b>4 Raymikuna</b> que coinciden con "
+    "los dos solsticios y los dos equinoccios del ano, relacionados con el ciclo agricola andino "
+    "cuyo referente principal es el maiz. Fuente: <i>imbaburatravel.ec</i>", body))
+story.append(fest_table([
+    ("Marzo (equinoccio)", "Otavalo / Peguche / Atuntaqui", "PAWKAR RAYMI (Fiesta del Florecimiento): celebracion del equinoccio de marzo. En Peguche-Otavalo se realizan rituales de agradecimiento, musica, danza y bano ritual en la cascada. Es uno de los eventos mas importantes del pais."),
+    ("Junio (solsticio)", "Otavalo / Ibarra / Cotacachi", "INTI RAYMI (Fiesta del Sol): solsticio de junio. La mas importante del calendario andino. Procesiones, musica de sanjuanito, danzas en la Cascada de Peguche. Declarado Patrimonio Cultural Inmaterial."),
+    ("Septiembre", "Otavalo", "FIESTA DEL YAMOR: feria del maiz y la bebida ceremonial Yamor (7 variedades de maiz). Una de las ferias mas importantes de la Sierra norte. Eleccion de reina, desfiles y gastronomia."),
+    ("Noviembre (equinoccio)", "Toda la provincia", "KOYA RAYMI (Fiesta de la Luna y la Mujer): celebracion del equinoccio de septiembre, ritual de agradecimiento a la luna y reconocimiento al rol de la mujer en la cultura kichwa."),
+    ("28 de septiembre", "Ibarra", "Fundacion de Ibarra (1606): desfiles civicos, ferias gastronomicas y artisticas, exposicion de bordados de Zuleta. La ciudad celebra sus 400+ anos de historia."),
+    ("Carnaval (fecha movil)", "Cotacachi / Ibarra / Pimampiro", "INTY SISA (Flores del Sol): carnaval indigena kichwa. Danzas, musica y rituales del pueblo Otavalo. Festival de la Bomba en el Valle del Chota."),
+    ("Diciembre-Enero", "Toda la provincia", "CAPAC RAYMI (Fiesta de la Grandeza): solsticio de diciembre. Ceremonias ancestrales y celebraciones mezcladas con la Navidad y el Ano Nuevo."),
+], IMB_BLUE))
+story.append(sp(0.06))
+story.append(Paragraph("🎵 <b>Bomba del Chota:</b> Musica afroecuatoriana unica de la Sierra. Instrumento principal: la bomba (tambor de cuero). Declarada Patrimonio Cultural Inmaterial del Ecuador.", bullet_p))
+story.append(Paragraph("🧶 <b>Tejidos de Otavalo:</b> El tejido en telar de cintura es una tradicion de 2.000 anos. Las mujeres otavalenas tejen ponchos, tapices y ropa que se venden en todo el mundo.", bullet_p))
+story.append(Paragraph("🌊 <b>Bano ritual en Peguche:</b> En el Inti Raymi, los indigenas otavalenos se banan en la cascada sagrada de Peguche a la medianoche del 21 de junio para purificarse.", bullet_p))
+
+story.append(PageBreak())
+
+# ════════════════════ CHIMBORAZO ════════════════════
+story.append(big_banner("PROVINCIA DE CHIMBORAZO — Sultana de los Andes", CHI_RED, "⛰"))
+story.append(sp(0.1))
+story.append(Paragraph(
+    "Chimborazo, «La Sultana de los Andes», tiene <b>10 cantones</b>: Riobamba, Alausí, Colta, "
+    "Chambo, Cumanda, Guamote, Guano, Pallatanga, Penipe y Chunchi. Es la <b>2da provincia "
+    "con mayor poblacion indigena (178.754 personas, Censo INEC 2022)</b>. Alberga al "
+    "<b>pueblo Puruha (Puruwá)</b>, el mas numeroso de la Sierra central, con ~200.000 "
+    "habitantes en 780 comunidades. El Chimborazo (6.268 m) es el punto mas alto del Ecuador "
+    "y el mas cercano al sol medido desde el centro de la Tierra. Fuentes: "
+    "<i>turismo.gob.ec, riobamba.com.ec, viajandox.com</i>", body))
+story.append(sp(0.08))
+
+story.append(banner("1. DIVERSIDAD CULTURAL", CHI_RED))
+story.append(sp(0.06))
+story.append(info_table([
+    ("Pueblo Puruha (Puruwá)", "Pueblo mas numeroso de la Sierra central. Habita los 10 cantones de Chimborazo en 780 comunidades (~200.000 personas). Bilinges kichwa-espanol. Agricultores de papa, maiz, cebada, melloco y oca. Artesanos de ponchos, shigras y chumbis. Organizados en el Movimiento Indigena del Chimborazo (MICH)."),
+    ("Subgrupos Puruha", "Los Cachas (Riobamba), Coltas (Colta), Lictos (Riobamba), Guamotis (Guamote) y Alausi tienen variaciones dialectales y ceremoniales propias. Los Cachas de la parroquia Cacha conservan el patrimonio inmaterial Puruha con mas fidelidad."),
+    ("Mestizos de la Sierra", "Presentes en Riobamba y cantones del sur (Cumanda, Pallatanga). Han desarrollado una identidad propia llamada 'riobambena' con gastronomia de mercado, arte sacro y tradicion ferroviaria (primer ferrocarril transandino del Ecuador)."),
+    ("Herencia colonial hispanica", "Riobamba fue la primera ciudad fundada en territorio ecuatoriano (1534, Primer Cabildo). Su centro historico, iglesias y museos conservan siglos de sincretismo hispano-puruha."),
+], CHI_RED))
+story.append(sp(0.1))
+
+story.append(banner("2. GASTRONOMIA", CHI_RED))
+story.append(sp(0.06))
+story.append(Paragraph("La gastronomia de Chimborazo parte de los conocimientos ancestrales Puruha (papa, maiz, melloco, oca, mashua) transformados por el sincretismo hispano. Fuentes: <i>turismo.gob.ec, redalyc.org, riobamba.com.ec</i>", body))
+story.append(platos_table([
+    ("🐷 Hornado riobambeno", "Riobamba (Mercado La Merced)", "Cerdo horneado lentamente con 'agrio' (chicha y cerveza). El chiriucho riobambeno, unico en el pais, le da sabor agrio inconfundible. Las vendedoras del Mercado La Merced son patrimonio vivo.", CHI_RED),
+    ("🦙 Cuy asado con papas", "Toda la provincia", "Cuy entero preparado a la brasa con especias andinas. Plato ancestral Puruha para celebraciones y rituales. Con papas cocidas y salsa de mani.", CHI_RED),
+    ("🥣 Yahuarlocro", "Riobamba / Alausí", "Sopa de papas, visceras de borrego y sangre cocida. Con aguacate, cebolla y oregano. Plato reconfortante de los mercados serranos.", CHI_RED),
+    ("🌽 Morocho de leche", "Riobamba", "Bebida espesa de maiz morocho con leche y canela. Desayuno tradicional riobambeno, especialmente en el Mercado La Merced.", CHI_RED),
+    ("🥔 Llapingachos", "Toda la provincia", "Tortillas de papa rellenas de queso, doradas en manteca. Con chorizo, huevo y ahi de mani.", CHI_RED),
+    ("🍺 Jugos con hielo del Chimborazo", "Riobamba", "Jugos de frutas enfriados con hielo extraido manualmente del nevado Chimborazo. El ultimo hielero, Baltazar Ushca, mantuvo esta tradicion por decadas.", CHI_RED),
+    ("🌿 Ceviche de chochos", "Riobamba", "Lupinos (chochos) marinados con tomate, cebolla, limon y cilantro. Snack callejero emblematico de los mercados de Riobamba.", CHI_RED),
+], CHI_BROWN))
+story.append(sp(0.1))
+
+story.append(banner("3. VESTIMENTA", CHI_RED))
+story.append(sp(0.06))
+story.append(Paragraph(
+    "La vestimenta Puruha es una de las mas reconocidas del Ecuador. Fuente: "
+    "<i>viajandox.com/puruha, caminosandinos.travel</i>", body))
+story.append(Paragraph("<b>Hombres Puruha:</b> Poncho de lana de oveja u orlon con rayas verticales de colores intensos (rojo, azul, verde). Sombrero de lana o fieltro de ala media. Pantalon blanco o de tela oscura y alpargatas.", bullet_p))
+story.append(Paragraph("<b>Mujeres Puruha:</b> Anaco de pano de poliester o casimir negro sujetado con faja o chumbi tejida a mano. Bayeta o reboso de colores sujetada al pecho con collares de coral, pulseras y aretes de plata. En fiestas: colores llamativos y accesorios elaborados.", bullet_p))
+story.append(Paragraph("<b>Chumbi (faja andina):</b> Pieza textil tejida a mano por artesanos kichwas. Combina colores intensos y disenos simbolicos que representan la conexion con la tierra y la historia ancestral. Reconocida en la Plaza Artesanal del Tren.", bullet_p))
+story.append(Paragraph("<b>Mestizos riobambenos:</b> Vestimenta casual urbana. En fiestas y desfiles usan ropa formal. Los 'Diablos Sonajeros' (personaje del Pase del Nino) portan traje de diablo con cascabeles como tradicion familiar por 7 anos consecutivos.", bullet_p))
+story.append(sp(0.1))
+
+story.append(banner("4. LUGARES REPRESENTATIVOS", CHI_RED))
+story.append(sp(0.06))
+for lug, can, desc in [
+    ("Reserva de Produccion Fauna Chimborazo", "Riobamba (parr. San Juan)", "El Chimborazo (6.268 m) es el punto mas cercano al sol y la montana mas alta del Ecuador. Hábitat de vicunas, llamas y alpacas. La Ruta del Hielero recorre la mitica ruta del ultimo hielero del Chimborazo."),
+    ("Nariz del Diablo — Ferrocarril", "Alausí", "Descenso en zigzag del tren sobre una pendiente de 500 m. Considerado uno de los logros de ingenieria ferroviaria mas grandes del mundo. Operado por Ferrocarriles del Ecuador."),
+    ("Laguna de Colta", "Colta", "Laguna sagrada Puruha a 3.374 m.s.n.m. La Iglesia de Balbanera (1534), junto a la laguna, es la primera iglesia construida en Ecuador. Artesanias de totora y cabuya."),
+    ("Parroquia Cacha — Patrimonio Puruha", "Riobamba", "Parroquia mas antigua de Riobamba. Conserva el patrimonio inmaterial de la cultura Puruha. Museo Comunitario, artesanias y turismo vivencial en comunidades."),
+    ("Centro Historico de Riobamba", "Riobamba", "Ciudad de las Primicias: primer cabildo (1534), primer congreso constituyente (1830). Catedral, iglesias coloniales, Museo de la Ciudad y la emblematica Estacion del Ferrocarril."),
+    ("Mercado Intercultural de Guamote", "Guamote", "Feria semanal (jueves) con intercambio de productos, artesanias y gastronomia entre comunidades indigenas de toda la provincia. Uno de los mercados indigenas mas autenticos del Ecuador."),
+]:
+    story.append(lugar_card(lug, can, desc, CHI_RED, CHI_LIGHT))
+    story.append(sp(0.03))
+story.append(sp(0.08))
+
+story.append(banner("5. TRADICIONES Y FESTIVIDADES", CHI_BROWN))
+story.append(sp(0.06))
+story.append(fest_table([
+    ("Junio (solsticio)", "Toda la provincia", "INTI RAYMI: Fiesta del Sol de los pueblos Puruha. Procesiones, danzas, musica kichwa y ritales de agradecimiento al Taita Chimborazo y la Mama Tungurahua. En Guamote, Colta y Riobamba."),
+    ("Carnaval (fecha movil)", "Riobamba / Licto / Alausí", "PAUKAR RAYMI (Carnaval Indigena): celebracion del equinoccio de marzo con danzas y vestimenta tipica Puruha. Las comunidades de Licto son famosas por sus coplas y disfraces. Sincresis con el carnaval europeo."),
+    ("Semana Santa", "Riobamba / Yaruquies / toda", "PROCESION DEL SENOR DEL BUEN SUCESO (Riobamba): la mayor expresion de fe de la ciudad. Desde la Plaza Roja. Viernes Santo: viacrucis en vivo con personificaciones en la parroquia Yaruquies."),
+    ("Diciembre-Enero", "Riobamba", "PASE DEL NINO: fiesta patrimonial del Ecuador. Sincretismo e historia durante meses de diciembre y enero. Tradition familiar de vestirse de Diablo Sonajero 7 anos consecutivos."),
+    ("10 de noviembre", "Riobamba", "Primer Grito de Independencia de America (1820): Riobamba se enorgullece de ser la primera ciudad de America Latina en iniciar el proceso de independencia. Actos civicos y militares."),
+    ("11 de noviembre", "Riobamba", "Provincializacion de Chimborazo: desfiles civicos, feria artesanal de la Plaza Roja y eventos culturales en toda la provincia."),
+    ("Primer sabado de marzo", "Riobamba", "RUTA DEL HIELERO: carrera de montana que recorre la ruta del ultimo hielero del Chimborazo. Desde la choza del Hielero hasta la Catedral de Hielo."),
+], CHI_RED))
+story.append(sp(0.06))
+story.append(Paragraph("🧊 <b>El Ultimo Hielero del Chimborazo:</b> Baltazar Ushca fue el ultimo hielero que extraia bloques de hielo del Chimborazo manualmente para venderlos en Riobamba. Tradicion de siglos del pueblo Puruha, hoy convertida en simbolo cultural.", bullet_p))
+story.append(Paragraph("🎭 <b>Diablo Sonajero:</b> Personaje del Pase del Nino de Riobamba. Traje de diablo con cascabeles. La tradicion familiar de vestirlo durante 7 anos consecutivos es un compromiso de devocion.", bullet_p))
+story.append(Paragraph("🧶 <b>Artesanias Puruha:</b> Ponchos de lana con rayas, shigras (bolsas tejidas de cabuya), chumbis (fajas) y bordados de colores. Reconocidas en la Feria Artesanal de la Plaza Roja, Riobamba.", bullet_p))
+
+story.append(PageBreak())
+
+# ════════════════════ AZUAY ════════════════════
+story.append(big_banner("PROVINCIA DE AZUAY — Cuenca Patrimonio UNESCO", AZU_TEAL, "🌄"))
+story.append(sp(0.1))
+story.append(Paragraph(
+    "Azuay tiene <b>15 cantones</b>: Cuenca, Giron, Gualaceo, Nabon, Pauté, Pucara, "
+    "San Fernando, Santa Isabel, Sevilla de Oro, Sigsig, Chordeleg, El Pan, Guachapala, "
+    "Camilo Ponce Enriquez y Oa. Su capital, <b>Cuenca</b>, fue declarada "
+    "<b>Patrimonio Cultural de la Humanidad por la UNESCO en 1999</b>. Es el centro del "
+    "pueblo Kanari (Canari), uno de los pueblos indigenas mas resistentes de los Andes, "
+    "y sede de artesanias de fama mundial: paja toquilla, joyeria, ceramica y tejidos.", body))
+story.append(sp(0.08))
+
+story.append(banner("1. DIVERSIDAD CULTURAL", AZU_TEAL))
+story.append(sp(0.06))
+story.append(info_table([
+    ("Pueblo Kanari (Canari)", "Pueblo indigena ancestral del austro ecuatoriano. Asentado en Cuenca, Gualaceo, Nabon, Sigsig, Oa y Santa Isabel. Reconocidos por su resistencia al Imperio Inca. Conservan fiestas rituales, medicina ancestral y una cosmovisión ligada a la Pacha Mama. Su nombre viene de 'kan' (culebra) y 'ara' (guacamayo), sus animales sagrados."),
+    ("Pueblo Saraguro", "Ubicados en la frontera con Loja. Cantones Nabon y Oa de Azuay. Famosos por su vestimenta negra de luto por la muerte del Inca Atahualpa. Conservan tejidos, rituals y ferias."),
+    ("Mestizos del austro", "La cultura cuencana mestiza tiene identidad propia: llamados 'cachacos' por su elegancia. El cuencanismo es una identidad cultural fuerte con gastronomia, arquitectura colonial y artesanias distintivas."),
+    ("Artesanos de tequilla y joyeria", "En Sigsig y Chordeleg, artesanos especializados en joyeria de filigrana de plata y oro, ceramica y macrame. Sigsig es sede de tejidos de paja toquilla para sombreros finos."),
+], AZU_TEAL))
+story.append(sp(0.1))
+
+story.append(banner("2. GASTRONOMIA", AZU_TEAL))
+story.append(sp(0.06))
+story.append(platos_table([
+    ("🐷 Mote pillo", "Cuenca / toda la provincia", "Mote (maiz cocido) revuelto con huevos, cebolla y cilantro. Desayuno emblematico cuencano. Variante: mote sucio (con chicharron).", AZU_TEAL),
+    ("🍲 Cuy asado cuencano", "Cuenca / Gualaceo / Sigsig", "Cuy entero a la brasa, marinado con especias. Plato ceremonial Kanari y mestizo del austro. Con mote, papas y aji criollo.", AZU_TEAL),
+    ("🥘 Seco de chivo", "Santa Isabel / Giron / Pucara", "Estofado de carne de chivo con tomate, cebolla, aji y especias australes. Plato tipico de la zona sur de Azuay.", AZU_TEAL),
+    ("🍞 Pan de Gualaceo", "Gualaceo", "Panes artesanales en hornos de lena con harina de trigo local. El pan de Gualaceo es famoso en toda la Sierra sur por su sabor unico.", AZU_TEAL),
+    ("🫙 Mote con cascaritas", "Cuenca", "Mote cocinado acompanado de cascarita (corteza de cerdo frita). Snack callejero en los mercados de Cuenca.", AZU_TEAL),
+    ("🥛 Colada morada", "Toda la provincia (Nov. 2)", "Bebida ceremonial del Dia de Difuntos: colada de maiz negro con frutas, hierbas y especias. Solo se prepara en noviembre.", AZU_TEAL),
+    ("🌽 Chicha de jora", "Toda la provincia", "Bebida fermentada de maiz jora (maiz germinado). De origen preincaico. Base de las fiestas indigenas Kanari.", AZU_TEAL),
+], AZU_AMBER))
+story.append(sp(0.1))
+
+story.append(banner("3. VESTIMENTA", AZU_TEAL))
+story.append(sp(0.06))
+story.append(Paragraph("<b>Pueblo Kanari:</b> Poncho de lana a rayas, sombrero de paja toquilla o fieltro. Mujeres con pollera (falda amplia) de lana de colores, blusa bordada y reboso.", bullet_p))
+story.append(Paragraph("<b>Pueblo Saraguro (Nabon/Oa):</b> Famosos por vestir de <b>negro</b> en honor al Inca Atahualpa. Hombres con cushma negra (camisa), short de cuero y sombrero blanco. Mujeres con falda negra, blusa con bordados multicolores y topu (prendedor de plata).", bullet_p))
+story.append(Paragraph("<b>Mestizos cuencanos:</b> Traje de panno fino en fiestas formales. La 'chola cuencana' es la figura emblematica: falda de dos colores con bordados, blusa bordada, sombrero de paja toquilla fino y joyas de plata.", bullet_p))
+story.append(Paragraph("<b>Chola Cuencana:</b> Declarada Patrimonio Cultural del Ecuador. Su traje es obligatorio en las fiestas de fundacion de Cuenca (12 de abril). El sombrero fino de paja toquilla de Sigsig es parte central de su identidad.", bullet_p))
+story.append(sp(0.1))
+
+story.append(banner("4. LUGARES REPRESENTATIVOS", AZU_TEAL))
+story.append(sp(0.06))
+for lug, can, desc in [
+    ("Centro Historico de Cuenca", "Cuenca", "Patrimonio Cultural de la Humanidad UNESCO (1999). 52 edificios coloniales, catedral, monasterios y plazas. Construido sobre las ruinas del centro ceremonial Inca de Tomebamba."),
+    ("Ingapirca — Ruinas Incas", "Canar (jurisdiccion historica Kanari)", "El complejo arqueologico Inca mas importante del Ecuador. Incluye el Templo del Sol (Castillo), recintos y baños ceremoniales. Construido sobre asentamiento Kanari preexistente."),
+    ("Gualaceo — Capital Artesanal", "Gualaceo", "Canton conocido por tejidos de pano, macrame y joyeria de plata. Festival de la Fruta y Artesania (mayo). Mercado dominical con artesanias autenticass."),
+    ("Chordeleg — Joyeria de Filigrana", "Chordeleg", "Pueblo conocido mundialmente por su joyeria artesanal de filigrana de oro y plata. Decenas de talleres familiares con tecnicas heredadas de los Kanari."),
+    ("Parque Nacional Cajas", "Cuenca", "Reserva hidrica de Cuenca con 235 lagunas glaciares a entre 3.150 y 4.450 m.s.n.m. Sitio de pesca de trucha y senderismo. Paisaje de pajonal andino unico."),
+    ("Sigsig — Tejidos y Toquilla", "Sigsig", "Sede de artesanias de paja toquilla para sombreros de exportacion. Artesanos tejidos de macrame y sombreros finos. Ruinas arqueologicas de Chobshi."),
+]:
+    story.append(lugar_card(lug, can, desc, AZU_TEAL, AZU_LIGHT))
+    story.append(sp(0.03))
+story.append(sp(0.08))
+
+story.append(banner("5. TRADICIONES Y FESTIVIDADES", AZU_AMBER))
+story.append(sp(0.06))
+story.append(fest_table([
+    ("12 de abril", "Cuenca", "FUNDACION DE CUENCA (1557): desfiles civicos con la Chola Cuencana como figura emblematica. Feria artesanal, gastronomica y cultural. Festival de Danzas Folkloricas."),
+    ("Junio (solsticio)", "Cuenca / Azogues / Giron", "INTI RAYMI Kanari: celebracion del solsticio de junio en comunidades de la provincia. Rituales de agradecimiento, danzas tradicionales y gastronomia Kanari."),
+    ("3 de noviembre", "Cuenca", "Independencia de Cuenca (1820): desfiles militares, actos civicos y fiestas populares. El 3 de noviembre es feriado provincial."),
+    ("1-2 de noviembre", "Toda la provincia", "DIA DE DIFUNTOS: visita a cementerios con flores, musica y colada morada. La mesa de difuntos con los platos favoritos del fallecido es una tradicion kanari-mestiza."),
+    ("Mayo (variable)", "Gualaceo", "FESTIVAL DE LA FRUTA Y ARTESANIA: exposicion de frutas locales, artesanias textiles y joyeria. Representaciones culturales kanari. Eleccion de reina."),
+    ("Semana Santa", "Cuenca / Giron / Sigsig", "PROCESIONES DE SEMANA SANTA: las mas imponentes del austro ecuatoriano. La procesion del Cristo del Ricaurte en Cuenca atrae miles de fieles."),
+    ("Diciembre-Enero", "Toda la provincia", "PASE DEL NINO: celebracion navidena con comparsas, disfraces y musica. Tradicion sincretica hispano-kanari con siglos de historia."),
+], AZU_TEAL))
+story.append(sp(0.06))
+story.append(Paragraph("💃 <b>La Chola Cuencana:</b> Simbolo de la identidad del austro. Patrimonio Cultural del Ecuador. Su traje de pollera, blusa bordada, sombrero de toquilla fino y joyas de plata representa siglos de mestizaje cultural.", bullet_p))
+story.append(Paragraph("🐍 <b>Cultura Kanari:</b> El nombre 'Kanari' viene de sus animales sagrados: kan (culebra) y ara (guacamayo). Su resistencia al Imperio Inca los hizo aliados de los espanoles durante la conquista, hecho que ha generado debates historicos hasta hoy.", bullet_p))
+
+story.append(PageBreak())
+
+# ════════════════════ REGION AMAZONIA ════════════════════
+story.append(region_banner("REGION AMAZONIA (ORIENTE)", colors.HexColor("#14532D"), "🌿"))
+story.append(sp(0.12))
+story.append(Paragraph(
+    "La Region Amazonica ecuatoriana alberga la mayor concentracion de nacionalidades "
+    "indigenas del pais. Segun la CONAIE, en la Amazonia habitan: Kichwa Amazonico, Shuar, "
+    "Achuar, Shiwiar, Huaorani, Zapara, Siona, Secoya, Cofan y Andoa. Las provincias "
+    "con mayor diversidad son Morona Santiago (3 nacionalidades, 58,6% indigena), "
+    "Napo (65% indigena) y Pastaza (multiples nacionalidades incluyendo Zapara, "
+    "Patrimonio UNESCO).", body))
+story.append(sp(0.1))
+
+# ════════════════════ MORONA SANTIAGO ════════════════════
+story.append(big_banner("PROVINCIA DE MORONA SANTIAGO — Amazonia Turistica", MOR_GREEN, "🌿"))
+story.append(sp(0.1))
+story.append(Paragraph(
+    "Morona Santiago es la <b>2da provincia mas grande del Ecuador</b> con 24.063 km2 y "
+    "<b>12 cantones</b>: Morona (Macas), Gualaquiza, Huamboya, Limon Indanza, Logrono, "
+    "Pablo Sexto, Palora, San Juan Bosco, Santiago de Mendez, Sucua, Taisha y Tiwintza. "
+    "Alberga <b>3 nacionalidades indigenas amazónicas: Shuar, Achuar y Shiwiar</b>. "
+    "Es la <b>4ta provincia con mayor poblacion indigena (112.722, Censo INEC 2022)</b>. "
+    "Creada el <b>10 de noviembre de 1953</b>. Fuentes: "
+    "<i>turismo.gob.ec, turismoaccesible.ec, viajandox.com</i>", body))
+story.append(sp(0.08))
+
+story.append(banner("1. DIVERSIDAD CULTURAL", MOR_GREEN))
+story.append(sp(0.06))
+story.append(info_table([
+    ("Nacionalidad Shuar", "El pueblo amazonico mas numeroso del Ecuador. 'Shuar' significa 'gente o persona'. Habita 8 cantones de Morona Santiago (Morona, Sucua, Limon Indanza, San Juan Bosco, Santiago de Mendez, Gualaquiza, Logrono, Tiwintza). Su Federacion Shuar es modelo de organizacion indigena en Latinoamerica. Sus shamanes son reconocidos regionalmente por sus limpias y rituales curativos."),
+    ("Nacionalidad Achuar", "Ubicados principalmente en el canton Taisha. 'Achuar' significa 'gente del aguaje'. Protegen activamente su territorio rechazando presencia de empresas petroleras y mineras. Viven en aislamiento relativo en las cuencas de los rios Santiago, Morona y Pastaza."),
+    ("Nacionalidad Shiwiar", "Su nombre significa 'nuestra familia' o 'conocedores de la selva'. Creen que los espiritus habitan en la naturaleza y se comunican con ellos mediante cantos sagrados. Habitan en la zona sur de Morona Santiago y Pastaza."),
+    ("Macabeos (Mestizos)", "Los 'macabeos' son los habitantes mestizos propios de Macas (capital). Tienen expresiones autóctonas propias: vestimenta tradicional blanca y oscura, gastronomia propia (caldo de novios, picaditas macabeas) y el 'Randimpa' como costumbre comunitaria."),
+], MOR_GREEN))
+story.append(sp(0.1))
+
+story.append(banner("2. GASTRONOMIA", MOR_GREEN))
+story.append(sp(0.06))
+story.append(Paragraph("La gastronomia amazónica usa productos propios: yuca, palmito, papachina, pelma, camote, zanahoria amarilla y elepo. El ayampaco es el plato emblematico. Fuente: <i>turismo.gob.ec</i>", body))
+story.append(platos_table([
+    ("🍃 Ayampaco de pescado", "Morona / Sucua / Santiago de Mendez", "Pescado con palmito envuelto en hoja de bijao y asado sobre brasas. Plato emblematico Shuar y Achuar. Preparado con tilapia o pescado del rio.", MOR_GREEN),
+    ("🌿 Maito de pollo o tilapia", "Toda la provincia", "Pollo o tilapia marinado con especias, envuelto en hoja de bijao y cocinado a la parrilla. Variante amazonica del ayampaco.", MOR_GREEN),
+    ("🫖 Guayusa (bebida)", "Toda la provincia", "Te de la hoja de Ilex guayusa. Bebida ceremonial amazónica consumida al amanecer. Contiene cafeina y antioxidantes. Central en la cultura Kichwa y Shuar.", MOR_GREEN),
+    ("🥛 Chicha de yuca", "Toda la provincia", "Bebida fermentada de yuca masticada y fermentada. Base de la alimentacion y las ceremonias de todas las nacionalidades amazónicas. Ofrecida a los visitantes como gesto de hospitalidad.", MOR_GREEN),
+    ("🍲 Caldo de novios", "Morona (Macas)", "Sopa de gallina criolla con platano verde, yuca y especias. Especialidad macabea para celebraciones y reuniones.", MOR_GREEN),
+    ("🌱 Yarumak pachinramu", "Sucua / Santiago de Mendez (Shuar)", "Comida Shuar preparada con pelma (maiz tierno), yuca y chonta. Plato ritual asociado a la Fiesta de la Chonta.", MOR_GREEN),
+    ("🐌 Caldo de caracha", "Santiago de Mendez", "Sopa de pez caracha (armado o cucha), tipico del rio Santiago. Plato caracteristico del canton Santiago de Mendez.", MOR_GREEN),
+], MOR_BROWN))
+story.append(sp(0.1))
+
+story.append(banner("3. VESTIMENTA", MOR_GREEN))
+story.append(sp(0.06))
+story.append(Paragraph(
+    "La vestimenta de las nacionalidades amazonicas fue adaptada de su forma original "
+    "al uso cotidiano actual. Fuente: <i>amazoniaecuatoriana.wordpress.com, sabores-del-ecuador.webnode.es</i>", body))
+story.append(Paragraph("<b>Hombres Shuar:</b> Vestian el 'itip', una falda de lienzo con lineas verticales de colores morado, rojo, negro y blanco tinturados con vegetales. Antes usaban el 'kamush' de corteza de arbol machacada. Con coronas de plumas de tucan y pinturas faciales de animales sagrados.", bullet_p))
+story.append(Paragraph("<b>Mujeres Shuar:</b> El 'karachi' (vestido tradicional) de tela artesanal. Aretes, manillas y collares elaborados con semillas de cumbia, pambil y adornados con plumas de aves y caparazones.", bullet_p))
+story.append(Paragraph("<b>Pinturas faciales:</b> En las fiestas de la Tzantza y la culebra, los Shuar se pintan el cuerpo con disenos de sus animales sagrados. Creen que asi reciben la fuerza y el poder del animal representado.", bullet_p))
+story.append(Paragraph("<b>Macabeos:</b> Ropa ligera de colores blanco y oscuro. Blusa de mujer en colores pasteles. Refleja la fusion mestizo-amazonica.", bullet_p))
+story.append(Paragraph("<b>Actualidad:</b> En la vida cotidiana predomina la ropa occidental. La vestimenta tradicional se usa solo en celebraciones, rituales y eventos culturales de identidad.", bullet_p))
+story.append(sp(0.1))
+
+story.append(banner("4. LUGARES REPRESENTATIVOS", MOR_GREEN))
+story.append(sp(0.06))
+for lug, can, desc in [
+    ("Parque Nacional Sangay y Volcan Sangay", "Morona / Riobamba (limite)", "Patrimonio Natural UNESCO. El Sangay (5.230 m) es uno de los volcanes mas activos del mundo. Alberga osos de anteojos, tapires y condores. Laguna de Sardinayacu: sistema de 5 lagunas en la selva."),
+    ("Cuevas de Los Tayos", "Morona / Santiago de Mendez", "Sistema de cuevas sagradas para la cultura Shuar. Exploradas por una expedicion internacional en 1976. Descubrimientos arqueologicos de gran importancia historica y espiritual."),
+    ("Centro de Interpretacion Cultural Pedro Noguera", "Morona (Macas)", "Museo con 5 salas sobre la historia macabea y la cultura Shuar: figuras, pinturas, fotografias y restos arqueologicos. Fuente: turismo.gob.ec"),
+    ("Comunidad Shuar — Miazal y Buena Esperanza", "Morona", "Comunidades de turismo comunitario. Cascada Sagrada, aguas termales, rios navegables y ceremonias Shuar. Cabanas Etza y Nantar en la comunidad Buena Esperanza."),
+    ("Cascadas Kintia Panki — Sucua", "Sucua", "Cascadas en la selva con turismo comunitario Shuar: limpia, baile tradicional, artesanias y ayampaco. Rafting y kayak en el rio Upano."),
+    ("Valle del Rio Upano — Macas", "Morona (Macas)", "Valle con playas de arena, bosque de arrayanes y orquideas. Punto de partida para rafting y kayak. Mirador del Quilamo con vistas al valle y la selva."),
+]:
+    story.append(lugar_card(lug, can, desc, MOR_GREEN, MOR_LIGHT))
+    story.append(sp(0.03))
+story.append(sp(0.08))
+
+story.append(banner("5. TRADICIONES Y FESTIVIDADES", MOR_BROWN))
+story.append(sp(0.06))
+story.append(fest_table([
+    ("Mayo (cosecha)", "Morona / Sucua / comunidades Shuar", "FIESTA DE LA CHONTA: la mas importante de la cultura Shuar. Representa el ciclo biologico completo de la planta chonta. Se celebra en mayo con la cosecha. Comunidades: San Luis de Inimkis, Angel Ruby y otras."),
+    ("10 de noviembre", "Toda la provincia", "PROVINCIALIZACION DE MORONA SANTIAGO (1953): feriado provincial. Desfiles civicos, festival 'Oktoberfest de la Jungla', turismo comunitario y gastronomia artesanal de los 12 cantones."),
+    ("29 de mayo", "Morona (Macas)", "CANTONIZACION DE MACAS: eventos artisticos, culturales y deportivos. Recorrido por el Santuario de la Purisima de Macas y actividades comunitarias."),
+    ("Todo el ano", "Morona / Sucua", "EL RANDIMPA: minga comunitaria macabea para limpiar la ciudad antes de festividades. Participa toda la comunidad: instituciones, escuelas y ciudadanos. Simbolo de unidad y solidaridad.", ),
+    ("Variable", "Limon Indanza", "FESTIVAL ARTESANAL E INDUSTRIAL LIMON: exposicion de artesanias, tejidos, joyeria, queso y cerveza artesanal de la zona de limon."),
+    ("Variable", "Toda la provincia", "RITUALES SHAMANICOS Shuar: los shamanes realizan limpias y sanaciones con plantas medicinales, cantos especiales y rituales ancestrales. Experiencias disponibles para turistas en comunidades."),
+], MOR_GREEN))
+story.append(sp(0.06))
+story.append(Paragraph("💀 <b>Tradicion de la Tzantza (Shuar):</b> Historicamente, los Shuar practicaban la reduccion de cabezas de enemigos como ritual de poder espiritual. Esta tradicion, hoy abandonada, fue malinterpretada por Occidente pero tenia profundo significado cultural de transferencia de poder.", bullet_p))
+story.append(Paragraph("☕ <b>Wayusa Upina (Guayusa al amanecer):</b> Los Shuar y Kichwa se reunian al amanecer a tomar guayusa mientras contaban sus suenos. Esta tradicion fortalecia los vinculos comunitarios y la interpretacion espiritual.", bullet_p))
+
+story.append(PageBreak())
+
+# ════════════════════ NAPO ════════════════════
+story.append(big_banner("PROVINCIA DE NAPO — Puerta de la Amazonia", NAP_ORANGE, "🦜"))
+story.append(sp(0.1))
+story.append(Paragraph(
+    "Napo tiene <b>5 cantones</b>: Tena, Archidona, Carlos Julio Arosemena Tola, "
+    "El Chaco y Quijos. Es la <b>provincia mas indigena del Ecuador</b> con el "
+    "<b>65% de su poblacion autoidentificada como indigena</b> (Censo INEC 2022). "
+    "Tena es su capital y se la conoce como la 'Capital Amazonica del Ecuador'. "
+    "El pueblo <b>Kichwa Amazonico</b> es el mayoritario, mientras que los "
+    "<b>Huaorani</b> habitan en el parque Yasuni entre Napo, Orellana y Pastaza. "
+    "Fuentes: <i>turismo.gob.ec, viajandox.com, goraymi.com</i>", body))
+story.append(sp(0.08))
+
+story.append(banner("1. DIVERSIDAD CULTURAL", NAP_ORANGE))
+story.append(sp(0.06))
+story.append(info_table([
+    ("Kichwa Amazonico (Napuruna)", "Pueblo mayoritario de Napo. 'Napuruna' significa 'gente del Napo'. Hablan Kichwa (dialecto amazonico). Son agricultores de yuca, platano, cacao, maiz y cafe. Artesanos de ceramica, tintes naturales y tejidos. Organizados en comunidades a lo largo del rio Napo y sus afluentes."),
+    ("Pueblo Huaorani (Waorani)", "Ubicados en la zona fronteriza de Napo, Orellana y Pastaza. 'Huao' significa 'gente'. Conservan una de las culturas mas independientes de la Amazonia. Su territorio comparte el Parque Nacional Yasuni. Los Tagaeri y Taromenane, grupos Huaorani en aislamiento voluntario, son declarados 'intangibles' por el Estado."),
+    ("Pueblos Quijos y Omagua", "Antiguos pueblos amazonicos del rio Quijos (Napo) en proceso de recuperacion identitaria. Se fusionaron historicamente con los Kichwa. Habitan en la zona de Archidona y El Chaco."),
+    ("Colons y mestizos", "Migrantes de otras provincias que llegaron en el siglo XX. Conviven con las comunidades indigenas, aportando tradiciones serranas y costenas a la cultura napena."),
+], NAP_ORANGE))
+story.append(sp(0.1))
+
+story.append(banner("2. GASTRONOMIA", NAP_ORANGE))
+story.append(sp(0.06))
+story.append(platos_table([
+    ("🍃 Maito de tilapia", "Tena / Archidona", "Tilapia envuelta en hoja de bijao y cocinada sobre carbon. Plato mas popular de Tena. Con yuca, platano y aji de monte.", NAP_ORANGE),
+    ("🐛 Chontaduro (Chontacuro)", "Tena / Archidona / toda Napo", "Larva del escarabajo de la chonta. Se come asada, frita o cruda. Alto valor proteico. Plato ancestral Kichwa considerado delicacia en la Amazonia.", NAP_ORANGE),
+    ("🌿 Garabato yuyo", "Napo", "Especie de helecho comestible de la selva. Se prepara salteado con huevo y especias. Unico en la gastronomia amazonica.", NAP_ORANGE),
+    ("🥣 Masato", "Toda la provincia", "Pasta de yuca y platano cocidos y triturados. Base de la alimentacion Kichwa. Se consume solo o mezclado con chicha.", NAP_ORANGE),
+    ("🫙 Chicha de chonta", "Toda la provincia", "Chicha elaborada con el fruto de la palma chonta. Solo disponible en mayo (Fiesta de la Chonta). Bebida ritual de gran importancia ceremonial.", NAP_ORANGE),
+    ("☕ Guayusa amazonica", "Archidona / Tena", "Bebida de la hoja Ilex guayusa. Tradicion Kichwa de tomar guayusa al amanecer en familia. Certificada como Patrimonio Cultural Inmaterial. Exportada como te organico.", NAP_ORANGE),
+    ("🎣 Ceviche de palmito", "Tena", "Palmito fresco marinado en limon con cebolla, tomate y aji. Fusion amazónica del ceviche costeño con ingredientes de la selva.", NAP_ORANGE),
+], NAP_GREEN))
+story.append(sp(0.1))
+
+story.append(banner("3. VESTIMENTA", NAP_ORANGE))
+story.append(sp(0.06))
+story.append(Paragraph("<b>Mujeres Kichwa Amazonico:</b> Falda larga de tela estampada con colores vivos. Blusa de manga corta. Collares elaborados con semillas y plumas. El cabello largo se lleva suelto o trenzado.", bullet_p))
+story.append(Paragraph("<b>Hombres Kichwa Amazonico:</b> Cushma (tunica de tela natural teida con plantas). Collares de semillas y dientes de animales. Corona de plumas en ceremonias.", bullet_p))
+story.append(Paragraph("<b>Huaorani:</b> Tradicionalmente vestian solo una cuerda de algodon en la cintura. Hoy usan ropa occidental en su vida cotidiana. En ceremonias: pinturas faciales con achiote (rojo) y huito (negro), plumas de harpia y collares de semillas.", bullet_p))
+story.append(Paragraph("<b>Artesanias de identidad:</b> Ceramica amazónica pintada con disenos geometricos de la selva, tejidos de palma y cestos de cabuya. Las mujeres Kichwa son las principales artesanas.", bullet_p))
+story.append(sp(0.1))
+
+story.append(banner("4. LUGARES REPRESENTATIVOS", NAP_ORANGE))
+story.append(sp(0.06))
+for lug, can, desc in [
+    ("Cuevas de Jumandy (Jumandi)", "Archidona", "Sistema de cuevas sagradas Kichwa, hogar del heroe legendario Jumandy, que lidero la resistencia anti-colonial en 1578. Rio subterraneo, formaciones de estalactitas y estalagmitas. Parque acuatico en la entrada."),
+    ("Puerto Misahualli — Rio Napo", "Tena", "Puerto fluvial sobre el rio Napo. Famoso por los monos capuchinos que conviven con los turistas en el parque central. Punto de partida para tours a comunidades Kichwa de la selva."),
+    ("Parque Nacional Yasuni", "Napo / Orellana / Pastaza", "Reserva de biosfera UNESCO. Una de las zonas con mayor biodiversidad del planeta. Territorio Huaorani. Hábitat del aguila harpia, anacondas gigantes y delfines rosados."),
+    ("Papallacta — Termas y Lagunas", "Quijos", "Complejo de aguas termales a 3.300 m.s.n.m. en la transicion Sierra-Amazonia. Lagunas glaciares de Papallacta, flora de paramo andino y condores. Reserva Ecologica Antisana cercana."),
+    ("Comunidades Kichwas de la Red RICANCIE", "Archidona / Tena", "Red de 10 comunidades indigenas que ofrecen turismo comunitario autogestionado. Shiripuno, Anaangu y Kamak Maki ofrecen alojamiento, gastronomia y rituales autenticos con yachak (shamanes)."),
+    ("Cascada de Hollin y Rio Jatunyaku", "Archidona", "Cascadas de la selva baja. El Rio Jatunyaku es el origen del Rio Napo. Rafting grado 3-4 entre bosque primario y comunidades Kichwa."),
+]:
+    story.append(lugar_card(lug, can, desc, NAP_ORANGE, NAP_LIGHT))
+    story.append(sp(0.03))
+story.append(sp(0.08))
+
+story.append(banner("5. TRADICIONES Y FESTIVIDADES", NAP_GREEN))
+story.append(sp(0.06))
+story.append(fest_table([
+    ("Mayo (cosecha chonta)", "Tena / Archidona / comunidades", "FIESTA DE LA CHONTA (Kichwa): celebracion del inicio del ano nuevo kichwa. Se celebra con la eleccion de la Chonta Warmi (mujer simbolo de la chonta), danzas, chicha de chonta y rituales de agradecimiento."),
+    ("Febrero (Provincializacion)", "Tena y toda la provincia", "NAPU MARKA RAYMI: celebracion de la provincializacion de Napo con encuentro de nacionalidades indigenas en el pueblo Kichwa de Rukullakta (Archidona). Feria Ancestral Tushuna, Versiana y Takina en el Parque Intercultural de Tena."),
+    ("Todo el ano (amanecer)", "Toda la provincia Kichwa", "WAYUSA UPINA (Guayusa al amanecer): tradicion kichwa de reunirse en familia antes del amanecer a tomar guayusa mientras se cuentan los suenos. Patrimonio Cultural Inmaterial certificado (Archidona)."),
+    ("Variable", "Tena / comunidades Kichwa", "SAWARI (Matrimonio Kichwa): fiesta matrimonial ampliamente celebrada en la comunidad. Con musica de marimba amazónica, chicha, bailes y ceremonias de union de familias."),
+    ("Variable", "Toda la provincia", "RITUALES DEL YACHAK: los shamanes (yachak) realizan rituales de sanacion con ayahuasca, cantos (icaros) y plantas medicinales. Disponibles para turistas en comunidades bajo supervision."),
+    ("Todo el ano", "Archidona / Tena", "TURISMO COMUNITARIO RICANCIE: las 10 comunidades reciben turistas todo el ano. Elaboracion de chicha, recorridos por la chakra (huerta), pesca artesanal, musica y danzas Kichwa.", ),
+], NAP_ORANGE))
+story.append(sp(0.06))
+story.append(Paragraph("🌿 <b>Jumandy — Heroe Kichwa:</b> En 1578, Jumandy lidero la gran rebelion indigena contra la colonizacion espanola. Su espiritu habita en las cuevas que llevan su nombre en Archidona.", bullet_p))
+story.append(Paragraph("☕ <b>Guayusa Organica:</b> La guayusa cultivada en la Amazonia ecuatoriana es exportada a mercados internacionales como te organico. La empresa RUNA, fundada con comunidades Kichwa, es un ejemplo de comercio justo.", bullet_p))
+
+story.append(PageBreak())
+
+# ════════════════════ PASTAZA ════════════════════
+story.append(big_banner("PROVINCIA DE PASTAZA — La mas Grande del Ecuador", PAS_PURPLE, "🌺"))
+story.append(sp(0.1))
+story.append(Paragraph(
+    "Pastaza es la <b>provincia mas extensa del Ecuador</b> con 29.520 km2 y solo "
+    "<b>4 cantones</b>: Pastaza (Puyo), Mera, Santa Clara y Arajuno. Es la provincia con "
+    "mayor numero de nacionalidades indigenas: <b>Kichwa, Shuar, Achuar, Shiwiar, Zapara, "
+    "Andoa, Huaorani y Woaorani</b>. La <b>Nacion Zapara fue declarada Patrimonio Cultural "
+    "Inmaterial de la Humanidad por la UNESCO en 2001</b>. Puyo es su capital, conocida como "
+    "la 'Puerta a la Amazonia'. Fuentes: <i>turismo.gob.ec, turismoaccesible.ec</i>", body))
+story.append(sp(0.08))
+
+story.append(banner("1. DIVERSIDAD CULTURAL", PAS_PURPLE))
+story.append(sp(0.06))
+story.append(info_table([
+    ("Nacion Zapara", "La mas amenazada de las nacionalidades. En 2001 la UNESCO declaro la cultura Zapara Patrimonio Cultural Inmaterial de la Humanidad y en 2008 la inscribio en la Lista de Salvaguardia Urgente porque solo quedan ~200 hablantes activos de la lengua zapara. Habitan el canton Arajuno y en el Peru. Sus conocimientos chamánicos y ecologicos son unicos."),
+    ("Kichwa Amazonico de Pastaza", "La mas numerosa de Pastaza. Habitan las riberas del Pastaza, Bobonaza y sus afluentes. Centros de turismo comunitario como Sacha Runa y Kallari. Artesanos de ceramica y tejidos con disenos de la selva."),
+    ("Nacion Achuar", "Asentados en la zona sureste del canton Pastaza y Taisha (Morona Santiago). Guerreros independientes que se incorporaron al Ecuador en el siglo XX. Sus organizaciones FINAE y FONAKISE representan a 56 comunidades."),
+    ("Nacion Shiwiar y Andoa", "En el canton Arajuno y en la zona fronteriza con Peru. Los Andoa son una de las nacionalidades mas pequeñas del Ecuador, con menos de 500 personas en la actualidad."),
+    ("Huaorani (Waorani)", "En el canton Arajuno, frontera con Napo y Orellana. El territorio Huaorani incluye parte del Parque Nacional Yasuni. Los Tagaeri y Taromenane, grupos Huaorani en aislamiento voluntario, son intangibles por decision del Estado."),
+], PAS_PURPLE))
+story.append(sp(0.1))
+
+story.append(banner("2. GASTRONOMIA", PAS_PURPLE))
+story.append(sp(0.06))
+story.append(platos_table([
+    ("🍃 Ayampaco amazónico", "Pastaza / Arajuno / Mera", "Carnes (pollo, pescado, tilapia) con palmito envueltas en hojas de bijao y asadas. Plato emblema de la Amazonia ecuatoriana. Cada nacionalidad tiene su variante.", PAS_PURPLE),
+    ("🌿 Chicha de yuca masticada", "Toda la provincia", "La mujer kichwa o shuar mastíca la yuca cocida y la fermenta con su saliva (amilasa). Bebida ceremonial central en la hospitalidad amazónica. Ofrecida en cuencos de ceramica pintada.", PAS_PURPLE),
+    ("🐛 Larvae amazónicas (chontacuro)", "Arajuno / Pastaza", "Larva de la palmera chonta, rica en proteinas. Asada o frita. Plato ancestral de alto valor nutricional.", PAS_PURPLE),
+    ("🦌 Carne de monte (estofado)", "Toda la provincia (caza sostenible)", "Guatuso, sajino, caiman, armadillo o guanta en estofado con yuca y platano. Solo en contextos de subsistencia y turismo comunitario bajo permisos.", PAS_PURPLE),
+    ("🌱 Uchamango con aji", "Pastaza (Kichwa)", "Preparacion de platanos asados con aji de monte y sal. Acompanamiento basico kichwa con cualquier plato de la selva.", PAS_PURPLE),
+    ("🫖 Guayusa y Ayahuasca (ritual)", "Pastaza / Arajuno", "La guayusa: bebida cotidiana. La ayahuasca (yage): bejuco ceremonial preparado por el yachak para rituales de sanacion y vision. Solo bajo supervision de un shaman certificado.", PAS_PURPLE),
+], PAS_GOLD))
+story.append(sp(0.1))
+
+story.append(banner("3. VESTIMENTA", PAS_PURPLE))
+story.append(sp(0.06))
+story.append(Paragraph("<b>Kichwa Amazonico de Pastaza:</b> Cushma (tunica) de tela natural. Collares multicolores de semillas, huesos y conchas. Corona de plumas del arara o harpia en ceremonias. Las mujeres se adornan con pinturas faciales de achiote en eventos culturales.", bullet_p))
+story.append(Paragraph("<b>Nacion Zapara:</b> Ropa de tela con pinturas geometricas de la selva. Collares de semillas de chonta y plumas de aves del Yasuni. Sus artesanias de plumas son unicas en el mundo.", bullet_p))
+story.append(Paragraph("<b>Achuar:</b> Hombres con itip (falda de tela con rayas) y corona de plumas. Mujeres con tarach (vestido de una pieza de color azul marino). Collares y aretes elaborados.", bullet_p))
+story.append(Paragraph("<b>Huaorani:</b> Minima vestimenta en vida cotidiana tradicional. En la actualidad usan ropa occidental. En ceremonias: pinturas faciales rojas y negras con disenos de animales, plumas de harpia y pulseras de semillas.", bullet_p))
+story.append(sp(0.1))
+
+story.append(banner("4. LUGARES REPRESENTATIVOS", PAS_PURPLE))
+story.append(sp(0.06))
+for lug, can, desc in [
+    ("Parque Nacional Yasuni", "Pastaza / Napo / Orellana", "La zona con mayor biodiversidad registrada por km2 en el planeta. Territorio Huaorani. Declarada Reserva de Biosfera UNESCO. Rios Cononaco, Curaray y Yasuni son ecosistemas vitales."),
+    ("Comunidades Zapara de Arajuno", "Arajuno", "Patrimonio UNESCO (2001, Salvaguardia Urgente 2008). Solo ~200 hablantes del zapara sobreviven. Turismo de salvaguardia: los visitantes aprenden la lengua, artesanias y cosmovisión Zapara para ayudar a preservarla."),
+    ("CEFAS — Centro Educativo y Cultural", "Pastaza (Puyo)", "Centro de la Nacion Achuar en Puyo. Exposiciones culturales, artesanias y venta de productos de la selva. Punto de partida para tours a comunidades."),
+    ("Rio Pastaza y Puyo", "Pastaza (Puyo)", "Puyo es la 'Puerta a la Amazonia' con un malecon escénico sobre el rio Puyo. Zoologico de serpientes, jardin botanico y acceso a comunidades. Ciudad frontera Sierra-Amazonia."),
+    ("Termas de Papayacu y Lagunas de Sardinayacu", "Pastaza", "Fuentes termales naturales y cascadas de la selva alta. Rodeadas de bosque primario con orquideas, bromélias y aves raras."),
+    ("Comunidades de Turismo Comunitario Kichwa", "Pastaza / Mera / Arajuno", "Comunidades como Sacha Runa, Kallari y Mushuk Pakari ofrecen turismo vivencial: chakra (huerta amazónica), ceramica, rituales y gastronomia ancestral."),
+]:
+    story.append(lugar_card(lug, can, desc, PAS_PURPLE, PAS_LIGHT))
+    story.append(sp(0.03))
+story.append(sp(0.08))
+
+story.append(banner("5. TRADICIONES Y FESTIVIDADES", PAS_GOLD))
+story.append(sp(0.06))
+story.append(fest_table([
+    ("UNESCO (2001, Lista Urgente)", "Arajuno (Comunidades Zapara)", "PATRIMONIO ZAPARA UNESCO: la lengua, conocimiento chamánico y artesanías Zapara están en salvaguardia urgente por el riesgo de extinción. Solo ~200 hablantes. Los rituales del yachak Zapara son únicos en el mundo."),
+    ("Mayo (cosecha)", "Pastaza / Arajuno / comunidades Kichwa", "FIESTA DE LA CHONTA: año nuevo Kichwa amazónico. Elección de la Chonta Warmi. Bebida ritual de chicha de chonta, danzas y rituales de agradecimiento a la Pacha Mama."),
+    ("12 de febrero", "Pastaza (Puyo)", "PROVINCIALIZACION DE PASTAZA: actos civicos, desfiles y eventos culturales en la capital Puyo. Muestra de artesanias de las 8 nacionalidades de la provincia."),
+    ("Todo el año", "Toda la provincia", "RITUALES DE SANACION (Yachak): los shamanes Kichwa, Shuar, Achuar y Zapara realizan ceremonias con ayahuasca, plantas medicinales y cantos sagrados. Disponibles para visitantes bajo protocolos estrictos."),
+    ("Todo el año", "Toda la provincia", "WAYUSA UPINA: tradicion kichwa de consumir guayusa al amanecer reunidos en comunidad para contar suenos y fortalecer vinculos sociales y espirituales."),
+    ("Variable", "Arajuno / Pastaza / Mera", "TURISMO COMUNITARIO Y CHAKRA: recorridos por la huerta amazónica (chakra) donde las comunidades muestran tecnicas de cultivo de yuca, platano, cacao y plantas medicinales.", ),
+], PAS_PURPLE))
+story.append(sp(0.06))
+story.append(Paragraph("🌍 <b>Nacion Zapara — Patrimonio UNESCO:</b> La UNESCO reconocio a los Zapara en 2001 porque su lengua y conocimientos son inigualables en el mundo. Su visión cosmica de la selva, comunicada a través de la lengua zapara, representa un sistema de conocimiento unico.", bullet_p))
+story.append(Paragraph("🪴 <b>La Chakra Amazónica:</b> Sistema agricola ancestral kichwa que combina multiples plantas en la misma parcela (polikultura). Replica la estructura del bosque tropical y es uno de los sistemas agricolas mas sostenibles del mundo.", bullet_p))
+story.append(Paragraph("🦅 <b>Aguila Harpia:</b> El aguila mas grande del mundo habita en el Yasuni y territorios Huaorani. Para las culturas amazónicas es un ser espiritual de poder. Su pluma es usada en coronas ceremoniales de los jefes.", bullet_p))
+
+# ── FUENTES ──────────────────────────────────────────────────────
+story.append(sp(0.15))
+story.append(sep())
+story.append(banner("FUENTES OFICIALES Y BIBLIOGRAFICAS", colors.HexColor("#374151"), pad_v=5))
+story.append(sp(0.06))
+fuentes = [
+    "SIERRA:",
+    "• Prefectura de Imbabura — imbabura.gob.ec (turismo, fiestas, cultura)",
+    "• Ministerio de Turismo del Ecuador — turismo.gob.ec (Riobamba, Imbabura, Morona)",
+    "• Municipio de Riobamba / riobamba.com.ec — gastronomia y tradiciones",
+    "• Caminos Andinos Travel — caminosandinos.travel (Chimborazo, vestimenta Puruha)",
+    "• ViajandoX Ecuador — viajandox.com (Pueblo Puruha, Chimborazo)",
+    "• Turismo Accesible Ecuador — turismoaccesible.ec (Imbabura, Chimborazo, Morona)",
+    "• INEC Censo 2022 — ecuadorencifras.gob.ec (datos demograficos indigenas)",
+    "• MercoCiudades Riobamba — turismo.mercociudades.org",
+    "• Goraymi.com — goraymi.com (pueblos indigenas Sierra y Amazonia)",
+    "• Redalyc — redalyc.org (gastronomia Chimborazo, saberes ancestrales)",
+    "AMAZONIA:",
+    "• Ministerio de Turismo — turismo.gob.ec (Morona, Napo, Pastaza)",
+    "• GAD Municipal Santiago de Mendez — mendez.gob.ec (tradiciones, gastronomia)",
+    "• ViajandoX Ecuador — viajandox.com (Morona Santiago, Napo)",
+    "• Amazonia Ecuatoriana — amazoniaecuatoriana.wordpress.com (cultura Shuar, Achuar)",
+    "• Turismo Accesible Ecuador — turismoaccesible.ec (Morona Santiago)",
+    "• Centro Cultural Kichwa Umu Runashitu — umurunashitu.com (Archidona, Napo)",
+    "• UNESCO — Lista de Patrimonio Cultural Inmaterial: Nacion Zapara (2001, salvaguardia 2008)",
+    "• Educacion Intercultural Bilingue — educacionbilingue.gob.ec (sabiduría kichwa)",
+    "• CONAIE — Pueblos y Nacionalidades Indigenas del Ecuador",
+    "• IWGIA — El Mundo Indigena 2024: Ecuador — iwgia.org",
+]
+for f in fuentes:
+    s = src_s if not f.endswith(":") else PS(f"ft{id(f)}", fontSize=9, fontName="Helvetica-Bold", textColor=DARK_TXT, leading=14)
+    story.append(Paragraph(f, s))
+
+# ── BUILD ─────────────────────────────────────────────────────────
+doc = SimpleDocTemplate(
+    OUTPUT,
+    pagesize=letter,
+    rightMargin=0.82*inch,
+    leftMargin=0.82*inch,
+    topMargin=0.82*inch,
+    bottomMargin=0.82*inch,
+    title="Diversidad Cultural Sierra y Amazonia Ecuador",
+    author="Investigacion Ecuador — Fuentes Oficiales",
+)
+doc.build(story)
+print("PDF COMPLETO generado:", OUTPUT)
